@@ -1,17 +1,21 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 
 import ObsidianAutoCardLink from "src/main";
+import { ProviderConfigSchema } from "./metada_providers/provider_config_schema";
+import { ProviderSettings } from "./metada_providers/providers";
 
 export interface ObsidianAutoCardLinkSettings {
   showInMenuItem: boolean;
   enhanceDefaultPaste: boolean;
-  linkPreviewApiKey: string;
+
+  providers: { [providerId: string]: { [key: string]: any } };
 }
 
 export const DEFAULT_SETTINGS: ObsidianAutoCardLinkSettings = {
   showInMenuItem: true,
   enhanceDefaultPaste: false,
-  linkPreviewApiKey: ""
+
+  providers: {},
 };
 
 export class ObsidianAutoCardLinkSettingTab extends PluginSettingTab {
@@ -36,7 +40,6 @@ export class ObsidianAutoCardLinkSettingTab extends PluginSettingTab {
         return val
           .setValue(this.plugin.settings.enhanceDefaultPaste)
           .onChange(async (value) => {
-            if (!this.plugin.settings) return;
             this.plugin.settings.enhanceDefaultPaste = value;
             await this.plugin.saveSettings();
           });
@@ -49,28 +52,78 @@ export class ObsidianAutoCardLinkSettingTab extends PluginSettingTab {
         return val
           .setValue(this.plugin.settings.showInMenuItem)
           .onChange(async (value) => {
-            if (!this.plugin.settings) return;
             this.plugin.settings.showInMenuItem = value;
             await this.plugin.saveSettings();
           });
       });
 
-    new Setting(containerEl)
-      .setName("LinkPreview API Key")
-      .setDesc("API key for the LinkPreview.net service. Get one at https://my.linkpreview.net/access_keys")
-      .addText((text) =>
-        text
-          .setValue(this.plugin.settings.linkPreviewApiKey || "")
-          .onChange(async (value) => {
-            const trimmedValue = value.trim();
-            if (trimmedValue.length > 0 && trimmedValue.length !== 32) {
-              new Notice("LinkPreview API key must be 32 characters long");
-              this.plugin.settings.linkPreviewApiKey = "";
-            } else {
-              this.plugin.settings.linkPreviewApiKey = trimmedValue;
-            }
-            await this.plugin.saveSettings();
-          })
-      );
+    containerEl.createEl("h4", { text: "Metadata providers" });
+
+    for (let setting of ProviderSettings) {
+      const container = this.createProviderSection(containerEl, setting);
+
+      this.createProviderSettings(container, setting.id, setting);
+    }
+  }
+
+  private createProviderSection(containerEl: HTMLElement, setting: ProviderConfigSchema) {
+    const collapsible = containerEl.createEl("details", { cls: "collapsible-section" });
+    const summary = collapsible.createEl("summary", { text: `${setting.name} ` });
+    const link = summary.createEl("a", { text: `Docs`, href: setting.url, cls: "summary-link" });
+    link.target = "_blank"; // Open link in a new tab
+
+    return  collapsible.createEl("div");
+  }
+
+  private createProviderSettings(container: HTMLElement, providerId: string, provider: ProviderConfigSchema) {
+    Object.entries(provider).forEach(([key, config]) => {
+      switch (config.type) {
+        case "text":
+          new Setting(container)
+            .setName(config.label)
+            .setDesc(config.description ?? "")
+            .addText((text) => {
+              text.setPlaceholder(config.defaultValue);
+              text.setValue(this.plugin.settings.providers[providerId][key] ?? config.defaultValue);
+              text.onChange(async (value) => {
+                this.plugin.settings.providers[providerId][key] = value;
+                await this.plugin.saveSettings();
+              });
+            });
+          break;
+
+        case "toggle":
+          new Setting(container)
+            .setName(config.label)
+            .setDesc(config.description ?? "")
+            .addToggle((toggle) => {
+              toggle.setValue(this.plugin.settings.providers[providerId][key] ?? config.defaultValue);
+              toggle.onChange(async (value) => {
+                this.plugin.settings.providers[providerId][key] = value;
+                await this.plugin.saveSettings();
+              });
+            });
+          break;
+
+        case "number":
+          new Setting(container)
+            .setName(config.label)
+            .setDesc(config.description ?? "")
+            .addText((text) => {
+              text.setPlaceholder(config.defaultValue.toString());
+              text.setValue((this.plugin.settings.providers[providerId][key] ?? config.defaultValue).toString());
+              text.inputEl.type = "number";
+              text.onChange(async (value) => {
+                this.plugin.settings.providers[providerId][key] = Number(value);
+                await this.plugin.saveSettings();
+              });
+            });
+          break;
+
+        default:
+          console.error(`Unsupported config type: ${config.type}`);
+      }
+    });
+
   }
 }

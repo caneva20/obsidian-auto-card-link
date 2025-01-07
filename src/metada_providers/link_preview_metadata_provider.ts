@@ -1,18 +1,34 @@
 import { LinkMetadata } from "../interfaces";
 import { ObsidianAutoCardLinkSettings } from "../settings";
+import { DefaultConfig, ProviderConfigSchema, TextSetting } from "./provider_config_schema";
+import { IMetadataProvider } from "./providers";
 
-export class LinkPreviewMetadataProvider {
-  settings: ObsidianAutoCardLinkSettings;
+export const LinkPreviewConfig: ProviderConfigSchema = {
+  ...DefaultConfig,
+  id: "link-preview",
+  name: "Link Preview",
+  url: "link-preview.net",
+  apiKey: TextSetting("API Key", "", "Get one at https://my.linkpreview.net/access_keys"),
+};
+
+interface Config extends DefaultConfig {
+  apiKey: string;
+}
+
+export class LinkPreviewMetadataProvider implements IMetadataProvider {
+  settings: Config;
 
   constructor(settings: ObsidianAutoCardLinkSettings) {
-    this.settings = settings;
+    this.settings = settings.providers[LinkPreviewConfig.id] as Config;
   }
 
-  public async fetchUrlTitleViaLinkPreview(url: string): Promise<LinkMetadata | undefined> {
-    if (this.settings.linkPreviewApiKey.length !== 32) {
-      console.error(
-        "LinkPreview API key is not 32 characters long, please check your settings"
-      );
+  public async parse(url: string): Promise<LinkMetadata | undefined> {
+    if (!this.settings.enabled) {
+      return;
+    }
+
+    if (this.settings.apiKey.length !== 32) {
+      console.error("LinkPreview API key is not 32 characters long, please check your settings");
 
       return;
     }
@@ -23,7 +39,7 @@ export class LinkPreviewMetadataProvider {
       )}`;
       const response = await fetch(apiEndpoint, {
         headers: {
-          "X-Linkpreview-Api-Key": this.settings.linkPreviewApiKey,
+          "X-Linkpreview-Api-Key": this.settings.apiKey,
         },
       });
 

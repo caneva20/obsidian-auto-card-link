@@ -1,11 +1,19 @@
-import { requestUrl } from "obsidian";
+import { requestUrl, RequestUrlResponse } from "obsidian";
 import { LinkMetadata } from "src/interfaces";
+import { DefaultConfig, NumberSetting, ProviderConfigSchema } from "./provider_config_schema";
+
+export const DomParserConfig: ProviderConfigSchema = {
+  ...DefaultConfig,
+  id: "dom-parser",
+  name: "DOM Parser (local)",
+  priority: NumberSetting("Priority", 0, "Provider selection priority")
+};
 
 export class DomParserMetadataProvider {
   async parse(url: string): Promise<LinkMetadata | undefined> {
-    const res = await requestUrl(url);
+    const res = await this.getResponse(url);
 
-    if (!res.headers["content-type"].includes("text/html"))
+    if (!res)
       return;
 
     const parser = new DOMParser();
@@ -30,6 +38,21 @@ export class DomParserMetadataProvider {
       image: image,
       indent: 0
     };
+  }
+
+  private async getResponse(url: string): Promise<RequestUrlResponse | undefined> {
+    try {
+      const res = await requestUrl(url);
+
+      if (!res.headers["content-type"].includes("text/html"))
+        return;
+
+      return res;
+    } catch (error) {
+      console.warn(`Failed to fetch ${url}`, error);
+
+      return;
+    }
   }
 
   private getTitle(htmlDoc: Document): string | undefined {

@@ -1,11 +1,12 @@
-import { Plugin, MarkdownView, Editor, Menu, MenuItem } from "obsidian";
-import { ObsidianAutoCardLinkSettings, ObsidianAutoCardLinkSettingTab, DEFAULT_SETTINGS } from "src/settings";
+import { Editor, MarkdownView, Menu, MenuItem, Plugin } from "obsidian";
+import { DEFAULT_SETTINGS, ObsidianAutoCardLinkSettings, ObsidianAutoCardLinkSettingTab } from "src/settings";
 import { EditorExtensions } from "src/editor_enhancements";
 import { CheckIf } from "src/checkif";
 import { CodeBlockGenerator } from "src/code_block_generator";
 import { CodeBlockProcessor } from "src/code_block_processor";
 import { linkRegex } from "src/regex";
 import { LinkMetadataService } from "./link_metadata_service";
+import { ProviderSettings } from "./metada_providers/providers";
 
 export default class ObsidianAutoCardLink extends Plugin {
   settings!: ObsidianAutoCardLinkSettings;
@@ -13,6 +14,14 @@ export default class ObsidianAutoCardLink extends Plugin {
 
   async onload() {
     await this.loadSettings();
+
+    for (const provider of ProviderSettings) {
+      if(!this.settings.providers[provider.id]) {
+        this.settings.providers[provider.id] = {};
+      }
+    }
+
+    await this.saveSettings();
 
     this.linkMetadataService = new LinkMetadataService(this);
 
