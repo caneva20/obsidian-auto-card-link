@@ -1,0 +1,47 @@
+import { LinkMetadata } from "../interfaces";
+import { ObsidianAutoCardLinkSettings } from "../settings";
+
+export class LinkPreviewMetadataProvider {
+  settings: ObsidianAutoCardLinkSettings;
+
+  constructor(settings: ObsidianAutoCardLinkSettings) {
+    this.settings = settings;
+  }
+
+  public async fetchUrlTitleViaLinkPreview(url: string): Promise<LinkMetadata | undefined> {
+    if (this.settings.linkPreviewApiKey.length !== 32) {
+      console.error(
+        "LinkPreview API key is not 32 characters long, please check your settings"
+      );
+
+      return;
+    }
+
+    try {
+      const apiEndpoint = `https://api.linkpreview.net/?q=${encodeURIComponent(
+        url
+      )}`;
+      const response = await fetch(apiEndpoint, {
+        headers: {
+          "X-Linkpreview-Api-Key": this.settings.linkPreviewApiKey,
+        },
+      });
+
+      const data = await response.json();
+
+      return {
+        url: url,
+        title: data.title,
+        description: data.description,
+        host: new URL(url).hostname,
+        favicon: undefined,
+        image: data.image,
+        indent: 0,
+      };
+    } catch (error) {
+      console.error(error);
+
+      return;
+    }
+  }
+}

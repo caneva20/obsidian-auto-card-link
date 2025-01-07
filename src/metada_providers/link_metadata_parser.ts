@@ -1,90 +1,98 @@
+import { requestUrl } from "obsidian";
 import { LinkMetadata } from "src/interfaces";
 
-export class LinkMetadataParser {
-  url: string;
-  htmlDoc: Document;
+export class DomParserMetadataProvider {
+  async parse(url: string): Promise<LinkMetadata | undefined> {
+    const res = await requestUrl(url);
 
-  constructor(url: string, htmlText: string) {
-    this.url = url;
+    if (!res.headers["content-type"].includes("text/html"))
+      return;
 
     const parser = new DOMParser();
-    const htmlDoc = parser.parseFromString(htmlText, "text/html");
-    this.htmlDoc = htmlDoc;
-  }
+    const htmlDoc = parser.parseFromString(res.text, "text/html");
 
-  async parse(): Promise<LinkMetadata | undefined> {
-    const title = this.getTitle()
-      ?.replace(/\r\n|\n|\r/g, "")
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .trim();
-    if (!title) return;
+    const title = this.getTitle(htmlDoc);
 
-    const description = this.getDescription()
-      ?.replace(/\r\n|\n|\r/g, "")
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .trim();
-    const { hostname } = new URL(this.url);
-    const favicon = await this.getFavicon();
-    const image = await this.getImage();
+    if (!title)
+      return;
+
+    const description = this.getDescription(htmlDoc);
+    const { hostname } = new URL(url);
+    const favicon = await this.getFavicon(htmlDoc);
+    const image = await this.getImage(htmlDoc);
 
     return {
-      url: this.url,
+      url: url,
       title: title,
       description: description,
       host: hostname,
       favicon: favicon,
       image: image,
-      indent: 0,
+      indent: 0
     };
   }
 
-  private getTitle(): string | undefined {
-    const ogTitle = this.htmlDoc
+  private getTitle(htmlDoc: Document): string | undefined {
+    const ogTitle = htmlDoc
       .querySelector("meta[property='og:title']")
       ?.getAttr("content");
-    if (ogTitle) return ogTitle;
 
-    const title = this.htmlDoc.querySelector("title")?.textContent;
-    if (title) return title;
+    if (ogTitle)
+      return this.sanitize(ogTitle);
+
+    const title = htmlDoc.querySelector("title")?.textContent;
+
+    if (title)
+      return this.sanitize(title);
   }
 
-  private getDescription(): string | undefined {
-    const ogDescription = this.htmlDoc
+  private getDescription(htmlDoc: Document): string | undefined {
+    const ogDescription = htmlDoc
       .querySelector("meta[property='og:description']")
       ?.getAttr("content");
-    if (ogDescription) return ogDescription;
 
-    const metaDescription = this.htmlDoc
+    if (ogDescription)
+      return this.sanitize(ogDescription);
+
+    const metaDescription = htmlDoc
       .querySelector("meta[name='description']")
       ?.getAttr("content");
-    if (metaDescription) return metaDescription;
+
+    if (metaDescription)
+      return this.sanitize(metaDescription);
   }
 
-  private async getFavicon(): Promise<string | undefined> {
-    const favicon = this.htmlDoc
+  private async getFavicon(htmlDoc: Document): Promise<string | undefined> {
+    const favicon = htmlDoc
       .querySelector("link[rel='icon']")
       ?.getAttr("href");
-    if (favicon) return await this.fixImageUrl(favicon);
+
+    if (favicon)
+      return await this.fixImageUrl(favicon);
   }
 
-  private async getImage(): Promise<string | undefined> {
-    const ogImage = this.htmlDoc
+  private async getImage(htmlDoc: Document): Promise<string | undefined> {
+    const ogImage = htmlDoc
       .querySelector("meta[property='og:image']")
       ?.getAttr("content");
-    if (ogImage) return await this.fixImageUrl(ogImage);
+
+    if (ogImage)
+      return await this.fixImageUrl(ogImage);
   }
 
   private async fixImageUrl(url: string | undefined): Promise<string> {
-    if (url === undefined) return "";
-    const { hostname } = new URL(this.url);
+    if (!url)
+      return "";
+
+    const { hostname } = new URL(url);
     let image = url;
+
     // check if image url use double protocol
     if (url && url.startsWith("//")) {
       //   check if url can access via https or http
       const testUrlHttps = `https:${url}`;
       const testUrlHttp = `http:${url}`;
+
       if (await checkUrlAccessibility(testUrlHttps)) {
         image = testUrlHttps;
       } else if (await checkUrlAccessibility(testUrlHttp)) {
@@ -96,6 +104,7 @@ export class LinkMetadataParser {
       const testUrlHttp = `http://${hostname}${url}`;
       const resUrlHttps = await checkUrlAccessibility(testUrlHttps);
       const resUrlHttp = await checkUrlAccessibility(testUrlHttp);
+
       //   check if url can access via https or http
       if (resUrlHttps) {
         image = testUrlHttps;
@@ -115,5 +124,12 @@ export class LinkMetadataParser {
     }
 
     return image;
+  }
+
+  private sanitize(str: string | undefined): string | undefined {
+    return str?.replace(/\r\n|\n|\r/g, "")
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, "\\\"")
+      .trim();
   }
 }

@@ -1,21 +1,20 @@
 import { Plugin, MarkdownView, Editor, Menu, MenuItem } from "obsidian";
-
-import {
-  ObsidianAutoCardLinkSettings,
-  ObsidianAutoCardLinkSettingTab,
-  DEFAULT_SETTINGS,
-} from "src/settings";
+import { ObsidianAutoCardLinkSettings, ObsidianAutoCardLinkSettingTab, DEFAULT_SETTINGS } from "src/settings";
 import { EditorExtensions } from "src/editor_enhancements";
 import { CheckIf } from "src/checkif";
 import { CodeBlockGenerator } from "src/code_block_generator";
 import { CodeBlockProcessor } from "src/code_block_processor";
 import { linkRegex } from "src/regex";
+import { LinkMetadataService } from "./link_metadata_service";
 
 export default class ObsidianAutoCardLink extends Plugin {
-  settings?: ObsidianAutoCardLinkSettings;
+  settings!: ObsidianAutoCardLinkSettings;
+  linkMetadataService!: LinkMetadataService;
 
   async onload() {
     await this.loadSettings();
+
+    this.linkMetadataService = new LinkMetadataService(this);
 
     this.registerMarkdownCodeBlockProcessor("cardlink", async (source, el) => {
       const processor = new CodeBlockProcessor(this.app);
@@ -28,7 +27,7 @@ export default class ObsidianAutoCardLink extends Plugin {
       editorCallback: async (editor: Editor) => {
         await this.manualPasteAndEnhanceURL(editor);
       },
-      hotkeys: [],
+      hotkeys: []
     });
 
     this.addCommand({
@@ -36,24 +35,24 @@ export default class ObsidianAutoCardLink extends Plugin {
       name: "Enhance selected URL to card link",
       editorCheckCallback: (checking: boolean, editor: Editor) => {
         // if offline, not showing command
-        if (!navigator.onLine) return false;
+        if (!navigator.onLine)
+          return false;
 
-        if (checking) return true;
+        if (checking)
+          return true;
 
         this.enhanceSelectedURL(editor);
       },
       hotkeys: [
         {
           modifiers: ["Mod", "Shift"],
-          key: "e",
-        },
-      ],
+          key: "e"
+        }
+      ]
     });
 
     this.registerEvent(this.app.workspace.on("editor-paste", this.onPaste));
-
     this.registerEvent(this.app.workspace.on("editor-menu", this.onEditorMenu));
-
     this.addSettingTab(new ObsidianAutoCardLinkSettingTab(this.app, this));
   }
 
@@ -62,7 +61,7 @@ export default class ObsidianAutoCardLink extends Plugin {
       EditorExtensions.getSelectedText(editor) || ""
     ).trim();
 
-    const codeBlockGenerator = new CodeBlockGenerator(editor);
+    const codeBlockGenerator = new CodeBlockGenerator(editor, this.linkMetadataService);
 
     for (const line of selectedText.split(/[\n ]/)) {
       if (CheckIf.isUrl(line)) {
@@ -96,7 +95,7 @@ export default class ObsidianAutoCardLink extends Plugin {
       return;
     }
 
-    const codeBlockGenerator = new CodeBlockGenerator(editor);
+    const codeBlockGenerator = new CodeBlockGenerator(editor, this.linkMetadataService);
     await codeBlockGenerator.convertUrlToCodeBlock(clipboardText);
     return;
   }
@@ -130,7 +129,7 @@ export default class ObsidianAutoCardLink extends Plugin {
     evt.stopPropagation();
     evt.preventDefault();
 
-    const codeBlockGenerator = new CodeBlockGenerator(editor);
+    const codeBlockGenerator = new CodeBlockGenerator(editor, this.linkMetadataService);
     await codeBlockGenerator.convertUrlToCodeBlock(clipboardText);
     return;
   };

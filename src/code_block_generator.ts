@@ -1,14 +1,15 @@
-import { Editor, Notice, requestUrl } from "obsidian";
-
+import { Editor, Notice } from "obsidian";
 import { LinkMetadata } from "src/interfaces";
 import { EditorExtensions } from "src/editor_enhancements";
-import { LinkMetadataParser } from "src/link_metadata_parser";
+import { LinkMetadataService } from "./link_metadata_service";
 
 export class CodeBlockGenerator {
   editor: Editor;
+  linkMetadataService: LinkMetadataService;
 
-  constructor(editor: Editor) {
+  constructor(editor: Editor, linkMetadataService: LinkMetadataService) {
     this.editor = editor;
+    this.linkMetadataService = linkMetadataService;
   }
 
   async convertUrlToCodeBlock(url: string): Promise<void> {
@@ -27,9 +28,7 @@ export class CodeBlockGenerator {
     const start = text.indexOf(fetchingText);
 
     if (start < 0) {
-      console.log(
-        `Unable to find text "${fetchingText}" in current editor, bailing out; link ${url}`
-      );
+      console.log(`Unable to find text "${fetchingText}" in current editor, bailing out; link ${url}`);
       return;
     }
 
@@ -50,12 +49,18 @@ export class CodeBlockGenerator {
     const codeBlockTexts = ["\n```cardlink"];
     codeBlockTexts.push(`url: ${linkMetadata.url}`);
     codeBlockTexts.push(`title: "${linkMetadata.title}"`);
+
     if (linkMetadata.description)
       codeBlockTexts.push(`description: "${linkMetadata.description}"`);
-    if (linkMetadata.host) codeBlockTexts.push(`host: ${linkMetadata.host}`);
+
+    if (linkMetadata.host)
+      codeBlockTexts.push(`host: ${linkMetadata.host}`);
+
     if (linkMetadata.favicon)
       codeBlockTexts.push(`favicon: ${linkMetadata.favicon}`);
+
     if (linkMetadata.image) codeBlockTexts.push(`image: ${linkMetadata.image}`);
+
     codeBlockTexts.push("```\n");
     return codeBlockTexts.join("\n");
   }
@@ -63,21 +68,7 @@ export class CodeBlockGenerator {
   private async fetchLinkMetadata(
     url: string
   ): Promise<LinkMetadata | undefined> {
-    const res = await (async () => {
-      try {
-        return requestUrl({ url });
-      } catch (e) {
-        console.log(e);
-        return;
-      }
-    })();
-    if (!res || res.status != 200) {
-      console.log(`bad response. response status code was ${res?.status}`);
-      return;
-    }
-
-    const parser = new LinkMetadataParser(url, res.text);
-    return parser.parse();
+    return await this.linkMetadataService.fetchMetadata(url);
   }
 
   private createBlockHash(): string {
