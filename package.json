@@ -1,30 +1,32 @@
 {
   "name": "obsidian-auto-card-link",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "description": "Automatically fetches metadata from a url and makes it as a card-styled link",
   "main": "main.js",
   "type": "module",
   "scripts": {
     "dev": "node esbuild.config.js",
-    "build": "tsc -noEmit && node esbuild.config.js production",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.js production",
     "version": "node version-bump.js && git add manifest.json versions.json"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nekoshita/obsidian-auto-card-link.git"
+    "url": "git+https://github.com/caneva20/obsidian-auto-card-link.git"
   },
-  "author": "Nekoshita Yuki",
+  "authors": [
+    "Nekoshita Yuki",
+    "Fabricio Caneva"
+  ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/nekoshita/obsidian-auto-card-link/issues"
+    "url": "https://github.com/caneva20/obsidian-auto-card-link/issues"
   },
-  "homepage": "https://github.com/nekoshita/obsidian-auto-card-link#readme",
+  "homepage": "https://github.com/caneva20/obsidian-auto-card-link#readme",
   "devDependencies": {
     "@types/node": "^17.0.23",
     "builtin-modules": "^3.2.0",
     "esbuild": "^0.14.28",
-    "obsidian": "^1.4.11",
-    "prettier": "^2.6.1",
+    "obsidian": "^1.7.2",
     "typescript": "^5.2.2"
   }
 }
